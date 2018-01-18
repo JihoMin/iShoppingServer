@@ -6,6 +6,7 @@ s : http 사용 위해
 - routes
 */
 
+//민지코드에 있던 애들
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -16,8 +17,38 @@ const path = require('path');
 const fs = require('fs');
 const del = require('del');
 
+//은지코드에서 추가
+var morgan = require('morgan');             // log requests to the console (express4)
+var bodyParser = require('body-parser');    // pull information from HTML POST (express4)
+var methodOverride = require('method-override'); // simulate DELETE and PUT (express4)
+
 let UPLOAD_PATH = 'uploads/';
 let PORT = 80;
+
+//initialize modules
+const app = express();
+app.use(cors());
+app.use(morgan('dev'));                                 
+ // log every request to the console
+app.use(bodyParser.urlencoded({'extended':'true'}));            // parse application/x-www-form-urlencoded
+app.use(bodyParser.json());                                     // parse application/json
+app.use(bodyParser.json({ type: 'application/vnd.api+json' })); // parse application/vnd.api+json as json
+app.use(methodOverride());
+app.use(cors());
+
+app.use(function(req, res, next) {
+   res.header("Access-Control-Allow-Origin", "*");
+   res.header('Access-Control-Allow-Methods', 'DELETE, PUT');
+   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+   next();
+});
+
+// Models
+var clothInf = mongoose.model('clothInf', {
+    name: String,
+    spot: String,
+    price: Number
+});
 
 //multer Settings for file upload
 
@@ -32,9 +63,6 @@ var storage = multer.diskStorage({
 
 let upload = multer ({ storage: storage})
 
-const app = express();
-app.use(cors());
-
 let uri = 'mongodb://localhost/imageupload';
 mongoose.connect(uri, (err) => {
     if(err) {
@@ -42,10 +70,6 @@ mongoose.connect(uri, (err) => {
     } else {
         console.log('Connected to MongoDb');
     }
-});
-
-app.listen(PORT, function () {
-    console.log('listening on port: ' + PORT);
 });
 
 module.exports = {
@@ -117,4 +141,59 @@ app.delete('/images/:id', (req, res, next) => {
         })
     })
 });
+
+//은지코드 파트
+ // Get reviews
+    app.get('/history', function(req, res) {
+        console.log("클라에서 get으로 들어왔다"); 
+        // use mongoose to get all reviews in the database
+        clothInf.find(function(err, result) {
+ 
+            // if there is an error retrieving, send the error. nothing after res.send(err) will execute
+            if (err)
+                res.send(err)
+ 
+            res.json(result); // return all reviews in JSON format
+        });
+    });
+ 
+    // create review and send back all reviews after creation
+    app.post('/history', function(req, res) {
+ 
+        console.log("클라에서 포스트로 받아서 디비 추가했어요");
+ 
+        // create a review, information comes from request from Ionic
+        clothInf.create({
+            name : req.body.name,
+            spot : req.body.spot,
+            price: req.body.price,
+            done : false
+        }, function(err, res) {
+            if (err)
+                console.log("만드는데 " + err);  
+            // get and return all the reviews after you create another
+            clothInf.find(function(err, results) {
+                if (err)
+                    console.log("search " + err);
+               // res.json(results);
+            });
+        });
+ 
+    });
+ 
+    // delete a review
+    app.delete('/history/:_id', function(req, res) {
+        clothInf.remove({
+            _id : req.params._id
+        }, function(err, review) {
+ 
+        });
+    });
+ 
+
+//listening port:80
+app.listen(PORT, function () {
+    console.log('listening on port: ' + PORT);
+});
+
 
